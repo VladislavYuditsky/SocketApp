@@ -131,8 +131,6 @@ public class TcpClientService implements ClientService {
             client.getDataOutputStream().writeLong(file.length());
             client.getDataOutputStream().flush();
 
-            System.out.println("РАЗМЕР ФАЙЛА: " + file.length());
-
             FileInputStream fileInputStream = new FileInputStream(file);
             int n;
             byte[] buf = new byte[65536];
@@ -149,16 +147,7 @@ public class TcpClientService implements ClientService {
 
                 } catch (Exception e) {
 
-                    System.out.println("exception " + e);
-
-                    System.out.println(e.getMessage());
-
                     if (!waitReconnecting(client.getDataInputStream(), ack)) {
-
-                        Long position = fileInputStream.getChannel().position();
-                        System.out.println("Connection lost");
-                        System.out.println("CUR TOTAL: " + total);
-                        System.out.println("POSITION " + position);
                         while (true) {
                             System.out.println("Try to reconnect? (y)");
                             if (inputScanner.next().equals("y")) {
@@ -168,7 +157,7 @@ public class TcpClientService implements ClientService {
                                     client.getDataOutputStream().flush();
                                     break;
                                 } catch (ValidationException | ConnectionException ex) {
-                                    System.out.println("Failed");
+                                    log.error("Failed");
                                 }
                             } else {
                                 close();
@@ -179,20 +168,17 @@ public class TcpClientService implements ClientService {
                 }
             }
 
-            System.out.println("TOTAL: " + total);
-
 
             Long endTime = new Date().getTime();
-            System.out.println("BITRATE: " + ((double) file.length() / (endTime - startTime)) + " KB/s");
+            log.debug("BITRATE: " + ((double) file.length() / (endTime - startTime)) + " KB/s");
         } catch (IOException | InterruptedException e) {
-            System.out.println(e.getMessage());
             throw new ServiceException("Data stream IO Exception. Upload failed.", e);
         }
     }
 
     private boolean waitReconnecting(DataInputStream dataInputStream, byte[] ack) throws InterruptedException {
         long start = System.currentTimeMillis();
-        long timeout = 10000L;
+        long timeout = 15000L;
         long end = start + timeout;
 
         while (System.currentTimeMillis() < end) {
@@ -201,7 +187,7 @@ public class TcpClientService implements ClientService {
                 dataInputStream.read(ack);
                 return true;
             } catch (Exception e1) {
-                System.out.println("wait");
+                log.debug("Wait");
             }
         }
 
@@ -224,12 +210,11 @@ public class TcpClientService implements ClientService {
             client.getDataOutputStream().flush();
 
             if (!client.getDataInputStream().readBoolean()) {
-                System.out.println("No such file");
+                log.debug("No such file");
                 return;
             }
 
             Long length = client.getDataInputStream().readLong();
-            System.out.println("FILE LENGTH: " + length);
             FileOutputStream fileOutputStream = new FileOutputStream(BASKET_PATH + filename);
 
             int n;
@@ -240,8 +225,6 @@ public class TcpClientService implements ClientService {
             while (bytesRemaining != 0) {
                 try {
                     n = client.getDataInputStream().read(buf);
-
-                    System.out.println("N = " + n);
 
                     portion += n;
                     fileOutputStream.write(buf, 0, n);
@@ -261,14 +244,8 @@ public class TcpClientService implements ClientService {
 
                 } catch (Exception e) {
 
-                    System.out.println(e.getMessage());
                     if (connectionHandler.closeConnection()) {
-                        Long position = fileOutputStream.getChannel().position();
                         fileOutputStream.getChannel().position(lastSubmittedPosition);
-                        System.out.println("POSITION " + position);
-                        System.out.println("LastSubmittedPosition " + lastSubmittedPosition);
-                        System.out.println("CUR TOTAL: " + total1);
-                        System.out.println("PORTION: " + portion);
                         while (true) {
                             System.out.println("Try to reconnect? (y)");
                             if (inputScanner.next().equals("y")) {
@@ -279,7 +256,7 @@ public class TcpClientService implements ClientService {
                                     portion = 0;
                                     break;
                                 } catch (ValidationException | ConnectionException ex) {
-                                    System.out.println("Failed");
+                                    log.error("Failed");
                                 }
                             } else {
                                 close();
@@ -295,7 +272,7 @@ public class TcpClientService implements ClientService {
             fileOutputStream.close();
 
             Long endTime = new Date().getTime();
-            System.out.println("BITRATE: " + ((double) length / (endTime - startTime)) + " KB/s");
+            log.debug("BITRATE: " + ((double) length / (endTime - startTime)) + " KB/s");
         } catch (IOException | InterruptedException e) {
             throw new ServiceException("Data stream IO exception. Download failed", e);
         }
