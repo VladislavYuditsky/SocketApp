@@ -1,8 +1,10 @@
 package com.yuditsky.socketapp.handler;
 
 import lombok.Data;
+import lombok.extern.log4j.Log4j2;
 
 @Data
+@Log4j2
 public class ConnectionHandler {
 
     private final int SECONDS_TO_RECONNECT = 10;
@@ -18,7 +20,7 @@ public class ConnectionHandler {
         if (secondsLeft <= 0) {
             return true;
         }
-        System.out.println("Trying to reconnect " + secondsLeft);
+        log.debug("Trying to reconnect " + secondsLeft);
         return false;
     }
 

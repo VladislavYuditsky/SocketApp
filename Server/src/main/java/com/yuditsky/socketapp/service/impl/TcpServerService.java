@@ -28,7 +28,7 @@ public class TcpServerService implements ServerService {
     private TcpServer server;
 
     @Override
-    public String read() throws ServiceException {
+    public String read() {
         try {
             return server.getDataInputStream().readUTF();
         } catch (IOException e) {
@@ -54,10 +54,6 @@ public class TcpServerService implements ServerService {
             server.setDataOutputStream(new DataOutputStream(new BufferedOutputStream(socket.getOutputStream())));
 
             log.debug("Connected");
-
-            System.out.println(server.getLastSocketAddress());
-            System.out.println(socket.getRemoteSocketAddress());
-            System.out.println(server.getLastIncompletedCommandName());
 
             if (server.getLastSocketAddress() != null && server.getLastSocketAddress().equals(socket.getInetAddress()) && server.getLastIncompletedCommandName() != null) {
                 if (server.getLastIncompletedCommandName().equals("upload")) {
@@ -136,8 +132,6 @@ public class TcpServerService implements ServerService {
         server.setLastIncompletedCommandName("upload");
         int total = 0;
 
-        System.out.println("OFFSET: " + server.getOffset());
-
         ConnectionHandler connectionHandler = new ConnectionHandler();
         try {
 
@@ -167,7 +161,6 @@ public class TcpServerService implements ServerService {
                     fileOutputStream.flush();
                     total += n;
                     server.setLength(server.getLength() - n);
-                    System.out.println("Осталось: " + server.getLength() + " n = " + n);
 
                     if (portion == 65536 || server.getLength() == 0) {
                         ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -179,12 +172,8 @@ public class TcpServerService implements ServerService {
 
                     connectionHandler.setSecondsLeft(10);
                 } catch (Exception e) {
-                    System.out.println(e.getMessage());
                     if (connectionHandler.closeConnection()) {
-                        Long position = fileOutputStream.getChannel().position();
                         fileOutputStream.getChannel().position(lastSubmittedPosition);
-                        System.out.println("POSITION " + position);
-                        System.out.println("CUR TOTAL: " + total);
                         close();
                         return;
                     }
@@ -209,11 +198,9 @@ public class TcpServerService implements ServerService {
                 if (server.getFileInputStream() == null) {
                     String filename = server.getDataInputStream().readUTF();
                     File file = new File(STORE_PATH + filename);
-                    System.out.println(filename);
                     server.getDataOutputStream().writeBoolean(true);
                     server.getDataOutputStream().flush();
 
-                    System.out.println(file.length());
                     server.getDataOutputStream().writeLong(file.length());
                     server.getDataOutputStream().flush();
 
@@ -222,7 +209,6 @@ public class TcpServerService implements ServerService {
                     server.setFileInputStream(fileInputStream);
                 } else {
                     Long position = server.getDataInputStream().readLong();
-                    System.out.println("TO THIS POSITION: " + position);
                     server.getFileInputStream().getChannel().position(position);
                 }
 
@@ -231,14 +217,12 @@ public class TcpServerService implements ServerService {
                 byte[] ack = new byte[1];
                 while ((n = server.getFileInputStream().read(buf)) != -1) {
                     try {
-                        System.out.println(n);
                         ExecutorService executor = Executors.newSingleThreadExecutor();
                         Future future = executor.submit(new Task1(buf, n));
                         future.get(3, TimeUnit.SECONDS);
 
                         server.getDataInputStream().read(ack);
                     } catch (Exception e) {
-                        System.out.println(e.getMessage());
                         if (!waitReconnecting(server.getDataInputStream(), ack)) {
                             close();
                         }
@@ -262,7 +246,7 @@ public class TcpServerService implements ServerService {
 
     private boolean waitReconnecting(DataInputStream dataInputStream, byte[] ack) throws InterruptedException {
         long start = System.currentTimeMillis();
-        long timeout = 10000L;
+        long timeout = 15000L;
         long end = start + timeout;
 
         while (System.currentTimeMillis() < end) {
@@ -271,7 +255,7 @@ public class TcpServerService implements ServerService {
                 dataInputStream.read(ack);
                 return true;
             } catch (Exception e1) {
-                System.out.println("wait");
+                log.debug("Wait");
             }
         }
 
