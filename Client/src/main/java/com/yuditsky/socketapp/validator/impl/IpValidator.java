@@ -12,6 +12,6 @@ public class IpValidator implements Validator<String> {
     }
 
     private boolean isValid(String ip){
-        return true; ///////
+        return true;
     }
 }

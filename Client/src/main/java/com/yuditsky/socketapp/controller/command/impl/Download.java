@@ -11,7 +11,7 @@ public class Download implements Command {
     public String execute(String request, ClientService clientService) {
         try {
             clientService.download(request);
-            return request + " is downloaded";
+            return "Downloading ended.";
         } catch (ServiceException e) {
             log.error(e);
             return e.getMessage();

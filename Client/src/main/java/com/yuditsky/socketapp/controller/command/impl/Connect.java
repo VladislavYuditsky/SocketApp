@@ -10,7 +10,7 @@ public class Connect implements Command {
     @Override
     public String execute(String request, ClientService clientService) {
         if (!clientService.isConnected()) {
-            String ip = request.substring(0, request.indexOf(PARAM_DELIMITER)); //забыл порт - получил indexOutOfBounds
+            String ip = request.substring(0, request.indexOf(PARAM_DELIMITER));
             int port = Integer.parseInt(request.substring(request.indexOf(PARAM_DELIMITER) + 1));
 
             try {

@@ -8,7 +8,7 @@ import java.util.Map;
 public class CommandProvider {
     private final Map<CommandName, Command> repository = new HashMap<>();
 
-    public CommandProvider(){
+    public CommandProvider() {
         repository.put(CommandName.CONNECT, new Connect());
         repository.put(CommandName.CLOSE, new Close());
         repository.put(CommandName.ECHO, new Echo());
@@ -18,11 +18,11 @@ public class CommandProvider {
         repository.put(CommandName.WRONG_REQUEST, new WrongRequest());
     }
 
-    public Command getCommand(String name){
+    public Command getCommand(String name) {
         CommandName commandName;
         Command command;
 
-        try{
+        try {
             commandName = CommandName.valueOf(name.toUpperCase());
             command = repository.get(commandName);
         } catch (IllegalArgumentException e) {

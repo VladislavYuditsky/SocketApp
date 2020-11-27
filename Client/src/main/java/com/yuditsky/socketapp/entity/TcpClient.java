@@ -12,4 +12,7 @@ public class TcpClient extends Client {
 
     private DataInputStream dataInputStream;
     private DataOutputStream dataOutputStream;
+
+    private String serverIp;
+    private int serverPort;
 }
