@@ -3,6 +3,7 @@ package com.yuditsky.socketapp.service.impl;
 import com.yuditsky.socketapp.entity.TcpServer;
 import com.yuditsky.socketapp.exception.ConnectionException;
 import com.yuditsky.socketapp.exception.ServiceException;
+import com.yuditsky.socketapp.handler.ConnectionHandler;
 import com.yuditsky.socketapp.service.ServerService;
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -12,6 +13,10 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 @Log4j2
 @AllArgsConstructor
@@ -32,15 +37,16 @@ public class TcpServerService implements ServerService {
     }
 
     @Override
-    public void connect() throws ConnectionException {
+    public void connect() throws ServiceException {
         try {
+
             log.debug("Waiting");
 
             ServerSocket serverSocket = server.getServerSocket();
 
             Socket socket = serverSocket.accept();
             socket.setKeepAlive(true);
-            socket.setSoTimeout(1000);
+            socket.setSoTimeout(2000);
 
             server.setServerSocket(serverSocket);
             server.setSocket(socket);
@@ -48,6 +54,22 @@ public class TcpServerService implements ServerService {
             server.setDataOutputStream(new DataOutputStream(new BufferedOutputStream(socket.getOutputStream())));
 
             log.debug("Connected");
+
+            System.out.println(server.getLastSocketAddress());
+            System.out.println(socket.getRemoteSocketAddress());
+            System.out.println(server.getLastIncompletedCommandName());
+
+            if (server.getLastSocketAddress() != null && server.getLastSocketAddress().equals(socket.getInetAddress()) && server.getLastIncompletedCommandName() != null) {
+                if (server.getLastIncompletedCommandName().equals("upload")) {
+                    server.setOffset(server.getDataInputStream().readLong());
+                    upload();
+                } else {
+                    download();
+                }
+            }
+
+            server.setLastSocketAddress(socket.getInetAddress());
+
         } catch (IOException e) {
             log.error(e.getMessage());
             throw new ConnectionException("Connection failed", e);
@@ -111,80 +133,185 @@ public class TcpServerService implements ServerService {
 
     @Override
     public void upload() throws ServiceException {
+        server.setLastIncompletedCommandName("upload");
+        int total = 0;
 
+        System.out.println("OFFSET: " + server.getOffset());
 
-//        ConnectionHandler connectionHandler = new ConnectionHandler();
+        ConnectionHandler connectionHandler = new ConnectionHandler();
         try {
-            String filename = server.getDataInputStream().readUTF();
-            long length = server.getDataInputStream().readLong();
 
-            FileOutputStream fileOutputStream = new FileOutputStream(
-//                    "C://Users//JFresh//Desktop//server_upload//" + filename
-                    STORE_PATH + filename
-            );
-
-            int n;
-            byte[] buf = new byte[4092];
-            while (length != 0) {
-//                try {
-                if ((n = server.getDataInputStream().read(buf)) == -1) {
-                    break;
-                }
-                fileOutputStream.write(buf, 0, n);
-                fileOutputStream.flush();
-                length -= n;
-                System.out.println(length);
-//                } catch (Exception e) {
-//                    if (connectionHandler.closeConnection()) {
-//                        fileOutputStream.close();
-//                        close();
-//                        connect();
-//                        return;
-//                    }
-//                    continue;
-//                }
+            if (server.getFileOutputStream() == null) {
+                String filename = server.getDataInputStream().readUTF();
+                long length = server.getDataInputStream().readLong();
+                FileOutputStream os = new FileOutputStream(
+                        STORE_PATH + filename
+                );
+                server.setFileOutputStream(os);
+                server.setLength(length);
             }
-            fileOutputStream.close();
 
-            server.getDataOutputStream().writeUTF("done");
-            server.getDataOutputStream().flush();
-        } catch (IOException e) {
+            FileOutputStream fileOutputStream = server.getFileOutputStream();
+
+            int lastSubmittedPosition = 0;
+            int n = 0;
+            int portion = 0;
+            byte[] buf = new byte[65536];
+            while (server.getLength() != 0) {
+                try {
+                    if ((n = server.getDataInputStream().read(buf)) == -1) {
+                        break;
+                    }
+                    portion += n;
+                    fileOutputStream.write(buf, 0, n);
+                    fileOutputStream.flush();
+                    total += n;
+                    server.setLength(server.getLength() - n);
+                    System.out.println("Осталось: " + server.getLength() + " n = " + n);
+
+                    if (portion == 65536 || server.getLength() == 0) {
+                        ExecutorService executor = Executors.newSingleThreadExecutor();
+                        Future future = executor.submit(new Task(server.getDataOutputStream()));
+                        future.get(3, TimeUnit.SECONDS);
+                        portion = 0;
+                        lastSubmittedPosition = total;
+                    }
+
+                    connectionHandler.setSecondsLeft(10);
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                    if (connectionHandler.closeConnection()) {
+                        Long position = fileOutputStream.getChannel().position();
+                        fileOutputStream.getChannel().position(lastSubmittedPosition);
+                        System.out.println("POSITION " + position);
+                        System.out.println("CUR TOTAL: " + total);
+                        close();
+                        return;
+                    }
+                    continue;
+                }
+            }
+
+            fileOutputStream.close();
+            server.setFileOutputStream(null);
+            server.setLength(0L);
+            server.setLastIncompletedCommandName(null);
+        } catch (IOException | InterruptedException e) {
             throw new ServiceException("Data stream IO exception. Upload failed", e);
         }
     }
 
     @Override
     public void download() throws ServiceException {
-        String filename = null;
+        server.setLastIncompletedCommandName("download");
         try {
-            filename = server.getDataInputStream().readUTF();
-            DataOutputStream dataOutputStream = server.getDataOutputStream();
-            File file;
-//            try {
-            //file = new File("server/files/" + filename);
-//                file = new File("C://Users//JFresh//Desktop//server_upload//" + filename);
-            file = new File(STORE_PATH + filename);
-            dataOutputStream.writeBoolean(true);
-            dataOutputStream.flush();
-//            } catch (Exception e) {
-//                dataOutputStream.writeBoolean(false);
-//                dataOutputStream.flush();
-//                return;
-//            }
-            System.out.println(file.length());
-            dataOutputStream.writeLong(file.length());
-            dataOutputStream.flush();
+            try {
+                if (server.getFileInputStream() == null) {
+                    String filename = server.getDataInputStream().readUTF();
+                    File file = new File(STORE_PATH + filename);
+                    System.out.println(filename);
+                    server.getDataOutputStream().writeBoolean(true);
+                    server.getDataOutputStream().flush();
 
-            FileInputStream fileInputStream = new FileInputStream(file);
-            int n;
-            byte[] buf = new byte[4092];
-            while ((n = fileInputStream.read(buf)) != -1) {
-                dataOutputStream.write(buf, 0, n);
-                System.out.println(n);
-                dataOutputStream.flush();
+                    System.out.println(file.length());
+                    server.getDataOutputStream().writeLong(file.length());
+                    server.getDataOutputStream().flush();
+
+                    FileInputStream fileInputStream = new FileInputStream(file);
+
+                    server.setFileInputStream(fileInputStream);
+                } else {
+                    Long position = server.getDataInputStream().readLong();
+                    System.out.println("TO THIS POSITION: " + position);
+                    server.getFileInputStream().getChannel().position(position);
+                }
+
+                int n;
+                byte[] buf = new byte[65536];
+                byte[] ack = new byte[1];
+                while ((n = server.getFileInputStream().read(buf)) != -1) {
+                    try {
+                        System.out.println(n);
+                        ExecutorService executor = Executors.newSingleThreadExecutor();
+                        Future future = executor.submit(new Task1(buf, n));
+                        future.get(3, TimeUnit.SECONDS);
+
+                        server.getDataInputStream().read(ack);
+                    } catch (Exception e) {
+                        System.out.println(e.getMessage());
+                        if (!waitReconnecting(server.getDataInputStream(), ack)) {
+                            close();
+                        }
+                    }
+                }
+
+            } catch (Exception e) {
+                server.getDataOutputStream().writeBoolean(false);
+                server.getDataOutputStream().flush();
+                return;
             }
+
+            server.getFileInputStream().close();
+            server.setFileInputStream(null);
+            server.setLastIncompletedCommandName(null);
+
         } catch (IOException e) {
             throw new ServiceException("Data stream IO exception. Download failed.", e);
+        }
+    }
+
+    private boolean waitReconnecting(DataInputStream dataInputStream, byte[] ack) throws InterruptedException {
+        long start = System.currentTimeMillis();
+        long timeout = 10000L;
+        long end = start + timeout;
+
+        while (System.currentTimeMillis() < end) {
+            Thread.sleep(1000);
+            try {
+                dataInputStream.read(ack);
+                return true;
+            } catch (Exception e1) {
+                System.out.println("wait");
+            }
+        }
+
+        return false;
+    }
+
+    class Task implements Runnable {
+        DataOutputStream dataOutputStream;
+
+        public Task(DataOutputStream dataOutputStream) {
+            this.dataOutputStream = dataOutputStream;
+        }
+
+        @Override
+        public void run() {
+            try {
+                server.getDataOutputStream().write(1);
+                server.getDataOutputStream().flush();
+            } catch (IOException e) {
+            }
+        }
+    }
+
+    class Task1 implements Runnable {
+
+        byte[] buf;
+        int n;
+
+        public Task1(byte[] buf, int n) {
+            this.buf = buf;
+            this.n = n;
+        }
+
+        @Override
+        public void run() {
+            try {
+                server.getDataOutputStream().write(buf, 0, n);
+                server.getDataOutputStream().flush();
+            } catch (IOException e) {
+            }
         }
     }
 }

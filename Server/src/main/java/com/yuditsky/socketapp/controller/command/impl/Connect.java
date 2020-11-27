@@ -9,7 +9,6 @@ import lombok.extern.log4j.Log4j2;
 public class Connect implements Command {
     @Override
     public void execute(String request, ServerService serverService) {
-//        int port = Integer.parseInt(request); зачем вообще его проверять? Удалить валидатор
         try {
             serverService.connect();
             log.debug("Connected");

@@ -9,7 +9,7 @@ public interface ServerService {
 
     void close() throws ServiceException;
 
-    void init() throws ServiceException; //Мб не нужен будет в UDP
+    void init() throws ServiceException;
 
     void echo() throws ServiceException;
 

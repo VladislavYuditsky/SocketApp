@@ -1,10 +1,9 @@
 package com.yuditsky.socketapp.controller;
 
 import com.yuditsky.socketapp.controller.command.Command;
-import com.yuditsky.socketapp.controller.command.CommandName;
 import com.yuditsky.socketapp.controller.command.CommandProvider;
-import com.yuditsky.socketapp.service.ServerService;
 import com.yuditsky.socketapp.exception.ServiceException;
+import com.yuditsky.socketapp.service.ServerService;
 import lombok.extern.log4j.Log4j2;
 
 import static com.yuditsky.socketapp.controller.util.Constant.PARAM_DELIMITER;
@@ -37,7 +36,7 @@ public class ServerController {
 
         try {
             commandName = request.substring(0, request.indexOf(PARAM_DELIMITER));
-        }catch (StringIndexOutOfBoundsException e){
+        } catch (StringIndexOutOfBoundsException e) {
             commandName = request;
         }
 
