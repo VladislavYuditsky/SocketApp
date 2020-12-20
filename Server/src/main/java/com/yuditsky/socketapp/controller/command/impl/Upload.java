@@ -5,6 +5,8 @@ import com.yuditsky.socketapp.exception.ServiceException;
 import com.yuditsky.socketapp.service.ServerService;
 import lombok.extern.log4j.Log4j2;
 
+import java.io.IOException;
+
 @Log4j2
 public class Upload implements Command {
 
@@ -14,6 +16,10 @@ public class Upload implements Command {
             serverService.upload();
         } catch (ServiceException e) {
             log.error(e.getMessage());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }

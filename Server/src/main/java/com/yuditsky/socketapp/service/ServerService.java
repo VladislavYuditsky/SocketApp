@@ -2,6 +2,8 @@ package com.yuditsky.socketapp.service;
 
 import com.yuditsky.socketapp.exception.ServiceException;
 
+import java.io.IOException;
+
 public interface ServerService {
     String read() throws ServiceException;
 
@@ -11,12 +13,12 @@ public interface ServerService {
 
     void init() throws ServiceException;
 
-    void echo() throws ServiceException;
+    void echo() throws ServiceException, IOException;
 
-    void time() throws ServiceException;
+    void time() throws ServiceException, IOException;
 
-    void upload() throws ServiceException;
+    void upload() throws ServiceException, IOException, InterruptedException;
 
-    void download() throws ServiceException;
+    void download() throws ServiceException, IOException, InterruptedException;
 
 }

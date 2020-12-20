@@ -129,6 +129,7 @@ public class TcpServerService implements ServerService {
 
     @Override
     public void upload() throws ServiceException {
+        System.out.println("Upload");
         server.setLastIncompletedCommandName("upload");
         int total = 0;
 
@@ -192,6 +193,7 @@ public class TcpServerService implements ServerService {
 
     @Override
     public void download() throws ServiceException {
+        System.out.println("Download");
         server.setLastIncompletedCommandName("download");
         try {
             try {
@@ -238,7 +240,7 @@ public class TcpServerService implements ServerService {
             server.getFileInputStream().close();
             server.setFileInputStream(null);
             server.setLastIncompletedCommandName(null);
-
+            System.out.println("END");
         } catch (IOException e) {
             throw new ServiceException("Data stream IO exception. Download failed.", e);
         }
@@ -253,6 +255,7 @@ public class TcpServerService implements ServerService {
             Thread.sleep(1000);
             try {
                 dataInputStream.read(ack);
+                System.out.println("continue");
                 return true;
             } catch (Exception e1) {
                 log.debug("Wait");
