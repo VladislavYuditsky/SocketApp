@@ -119,6 +119,7 @@ public class TcpClientService implements ClientService {
 
     @Override
     public void upload(String filename) throws ServiceException {
+        System.out.println("Upload");
         File file = new File(BASKET_PATH + filename);
 
         Long startTime = new Date().getTime();
@@ -176,7 +177,8 @@ public class TcpClientService implements ClientService {
         }
     }
 
-    private boolean waitReconnecting(DataInputStream dataInputStream, byte[] ack) throws InterruptedException {
+    @Override
+    public boolean waitReconnecting(DataInputStream dataInputStream, byte[] ack) throws InterruptedException {
         long start = System.currentTimeMillis();
         long timeout = 15000L;
         long end = start + timeout;
@@ -185,6 +187,7 @@ public class TcpClientService implements ClientService {
             Thread.sleep(1000);
             try {
                 dataInputStream.read(ack);
+                System.out.println("upload");
                 return true;
             } catch (Exception e1) {
                 log.debug("Wait");
@@ -197,6 +200,7 @@ public class TcpClientService implements ClientService {
 
     @Override
     public void download(String filename) throws ServiceException {
+        System.out.println("Download");
         ConnectionHandler connectionHandler = new ConnectionHandler();
 
         int total1 = 0;
@@ -246,6 +250,7 @@ public class TcpClientService implements ClientService {
 
                     if (connectionHandler.closeConnection()) {
                         fileOutputStream.getChannel().position(lastSubmittedPosition);
+                        bytesRemaining += portion;
                         while (true) {
                             System.out.println("Try to reconnect? (y)");
                             if (inputScanner.next().equals("y")) {

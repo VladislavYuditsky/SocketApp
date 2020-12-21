@@ -5,6 +5,8 @@ import com.yuditsky.socketapp.service.ClientService;
 import com.yuditsky.socketapp.exception.ServiceException;
 import lombok.extern.log4j.Log4j2;
 
+import java.io.IOException;
+
 @Log4j2
 public class Close implements Command {
     @Override
@@ -13,7 +15,7 @@ public class Close implements Command {
             clientService.close();
             log.debug("Connection closed");
             return "Connection closed";
-        } catch (ServiceException e) {
+        } catch (ServiceException | IOException e) {
             log.error("Close command failed: " + e.getMessage());
             return "Can't close connection";
         }

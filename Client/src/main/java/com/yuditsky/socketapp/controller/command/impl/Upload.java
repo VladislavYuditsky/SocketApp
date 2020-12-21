@@ -5,6 +5,8 @@ import com.yuditsky.socketapp.exception.ServiceException;
 import com.yuditsky.socketapp.service.ClientService;
 import lombok.extern.log4j.Log4j2;
 
+import java.io.IOException;
+
 @Log4j2
 public class Upload implements Command {
     @Override
@@ -12,7 +14,7 @@ public class Upload implements Command {
         try {
             clientService.upload(request);
             return "Uploaded";
-        } catch (ServiceException e) {
+        } catch (ServiceException | InterruptedException | IOException e) {
             log.error(e);
             return e.getMessage();
         }

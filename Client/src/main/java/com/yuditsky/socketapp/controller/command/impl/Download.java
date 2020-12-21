@@ -5,6 +5,8 @@ import com.yuditsky.socketapp.exception.ServiceException;
 import com.yuditsky.socketapp.service.ClientService;
 import lombok.extern.log4j.Log4j2;
 
+import java.io.IOException;
+
 @Log4j2
 public class Download implements Command {
     @Override
@@ -12,7 +14,7 @@ public class Download implements Command {
         try {
             clientService.download(request);
             return "Downloading ended.";
-        } catch (ServiceException e) {
+        } catch (ServiceException | IOException | InterruptedException e) {
             log.error(e);
             return e.getMessage();
         }
