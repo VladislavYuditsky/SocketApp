@@ -6,15 +6,19 @@ import com.yuditsky.socketapp.exception.ServiceException;
 import com.yuditsky.socketapp.service.ServerService;
 import lombok.extern.log4j.Log4j2;
 
+import java.util.concurrent.Exchanger;
+
 import static com.yuditsky.socketapp.controller.util.Constant.PARAM_DELIMITER;
 
 @Log4j2
 public class ServerController {
     private CommandProvider commandProvider = new CommandProvider();
     private ServerService serverService;
+    private Exchanger<String> exchanger;
 
-    public ServerController(ServerService serverService) {
+    public ServerController(ServerService serverService, Exchanger exchanger) {
         this.serverService = serverService;
+        this.exchanger = exchanger;
     }
 
     public void execute() {

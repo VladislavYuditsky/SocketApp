@@ -13,7 +13,7 @@ public interface ServerService {
 
     void init() throws ServiceException;
 
-    void echo() throws ServiceException, IOException;
+    void echo() throws ServiceException, IOException, InterruptedException;
 
     void time() throws ServiceException, IOException;
 

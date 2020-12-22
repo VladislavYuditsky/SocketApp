@@ -17,15 +17,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Exchanger;
+import java.util.concurrent.TimeUnit;
 
 public class UdpServerService implements ServerService {
     private static final String STORE_PATH = "store/";
 
-    private DatagramSocket socket;
+    private final DatagramSocket socket;
     private byte[] buf = new byte[65507];
-    private DatagramPacket packet;
-    private InetAddress address;
-    private int port;
+//    private DatagramPacket packet;
+    private final InetAddress address;
+    private final int port;
 
     private UdpServer server;
 
@@ -38,26 +40,40 @@ public class UdpServerService implements ServerService {
     private int d1 = 0;
     private FileInputStream fileInputStream;
 
-    public UdpServerService(UdpServer server) {
-        try {
-            this.server = server;
-            socket = new DatagramSocket(1234);
-//            socket.setSoTimeout(150);
-            socket.setSoTimeout(1000);
-        } catch (SocketException e) {
-            e.printStackTrace();
-        }
+    private Exchanger<byte[]> exchanger;
+
+//    public UdpServerService(UdpServer server, int port) {
+//        try {
+//            this.server = server;
+//            socket = new DatagramSocket(port);
+////            socket.setSoTimeout(150);
+//            socket.setSoTimeout(1000);
+//        } catch (SocketException e) {
+//            e.printStackTrace();
+//        }
+//    }
+
+    public UdpServerService(UdpServer server, Exchanger<byte[]> exchanger, DatagramSocket socket,
+                            InetAddress address, int port){
+        this.server = server;
+        this.exchanger = exchanger;
+        this.socket = socket;
+        this.port = port;
+        this.address = address;
     }
 
     @Override
-    public void echo() throws IOException {
-        String received = receiveString();
+    public void echo() throws IOException, InterruptedException {
+//        String received = receiveString();
+        String received = new String(exchanger.exchange("1".getBytes()));
+
+
         System.out.println(received);
         buf = received.toUpperCase().getBytes();
 
-        address = packet.getAddress();
-        int port = packet.getPort();
-        packet = new DatagramPacket(buf, buf.length, address, port);
+//        address = packet.getAddress();
+//        int port = packet.getPort();
+        DatagramPacket packet = new DatagramPacket(buf, buf.length, address, port);
         socket.send(packet);
     }
 
@@ -65,9 +81,9 @@ public class UdpServerService implements ServerService {
     public void time() throws IOException {
         buf = new Date().toString().getBytes();
         System.out.println(new Date().toString());
-        address = packet.getAddress();
-        int port = packet.getPort();
-        packet = new DatagramPacket(buf, buf.length, address, port);
+//        address = packet.getAddress();
+//        int port = packet.getPort();
+        DatagramPacket packet = new DatagramPacket(buf, buf.length, address, port);
         socket.send(packet);
     }
 
@@ -83,6 +99,8 @@ public class UdpServerService implements ServerService {
 
     @Override
     public void upload() throws IOException, InterruptedException {
+        byte[] m = new byte[]{1};
+
         long total = 0L;
 
         if (packetNumbers.size() > 0) {
@@ -96,11 +114,18 @@ public class UdpServerService implements ServerService {
             return;
         }
 
-        filename = receiveString();
-        Long length = bytesToLong(receiveBytes());
+//        filename = receiveString();
+        filename = new String(exchanger.exchange(m));
+
+
+//        Long length = bytesToLong(receiveBytes());
+        Long length = ByteBuffer.wrap(exchanger.exchange(m)).getLong();
+
+
         System.out.println("LENGTH: " + length);
         fileSize = length;
-        FileOutputStream fileOutputStream = new FileOutputStream(STORE_PATH + filename);
+        System.out.println("FILENAME " + filename);
+//        FileOutputStream fileOutputStream = new FileOutputStream(STORE_PATH + filename);
 
         packetNumbers = new ArrayList<>();
         for (Integer i = 0; i <= length / 65407; i++) {
@@ -116,8 +141,11 @@ public class UdpServerService implements ServerService {
         while (length != 0) {
             Integer packetNumber = 0;
             try {
-                System.out.println("R: " + receiveBytes().length);
-                n = packet.getLength();
+//                System.out.println("R: " + receiveBytes().length);
+//                n = packet.getLength();
+
+                buf = exchanger.exchange(m, 1000, TimeUnit.MILLISECONDS);
+                n = buf.length;
 
                 byte[] sHeader = new byte[100];
                 System.arraycopy(buf, 0, sHeader, 0, 100);
@@ -138,8 +166,8 @@ public class UdpServerService implements ServerService {
                 break;
             }
             System.arraycopy(buf, 0, bfile, packetNumber * 65407, buf.length);
-            fileOutputStream.write(buf, 0, n - 100);
-            fileOutputStream.flush();
+//            fileOutputStream.write(buf, 0, n - 100);
+//            fileOutputStream.flush();
             length -= (n - 100);
             total += (n - 100);
             System.out.println("TOTAL: " + total);
@@ -152,7 +180,7 @@ public class UdpServerService implements ServerService {
             fos.flush();
         }
 
-        fileOutputStream.close();
+//        fileOutputStream.close();
 
         sendString("done");
 
@@ -174,7 +202,8 @@ public class UdpServerService implements ServerService {
         for (int i = 0; i < k; i++) {
 
             try {
-                receiveBytes();
+//                receiveBytes();
+                buf = exchanger.exchange("1".getBytes(), 1000, TimeUnit.MILLISECONDS);
             } catch (Exception e) {
                 x++;
                 if (x == 50) {
@@ -184,7 +213,8 @@ public class UdpServerService implements ServerService {
                 fun(packetNumbers, filename, fileSize, bfile);
                 return;
             }
-            int n = packet.getLength();
+//            int n = packet.getLength();
+            int n = buf.length;
             byte[] sHeader = new byte[100];
             System.arraycopy(buf, 0, sHeader, 0, 100);
             String sHeaderStr = new String(sHeader);
@@ -213,7 +243,9 @@ public class UdpServerService implements ServerService {
             return;
         }
 
-        String filename = receiveString();
+//        String filename = receiveString();
+        String filename = new String(exchanger.exchange("1".getBytes()));
+
         System.out.println("FILENAME " + filename);
         File file;
         try {
@@ -259,7 +291,9 @@ public class UdpServerService implements ServerService {
         String str = "";
 
         try {
-            str = receiveString();
+//            str = receiveString();
+            str = new String(exchanger.exchange("1".getBytes()));
+
             System.out.println(str);
         } catch (Exception e) {
             d1++;
@@ -291,7 +325,8 @@ public class UdpServerService implements ServerService {
                 for (int i = 0; i < lossPacketNumber; i++) {
                     String lossPacketStr = "";
                     try {
-                        lossPacketStr = receiveString();
+//                        lossPacketStr = receiveString();
+                        lossPacketStr = new String(exchanger.exchange("1".getBytes()));
                     } catch (Exception e) {
                         downloadLoss(fileInputStream);
                         return;
@@ -336,19 +371,20 @@ public class UdpServerService implements ServerService {
 
     @Override
     public String read() throws ServiceException {
-        try {
-            String command = receiveString();
-//            System.out.println("UDP " + command);
-            if (command.startsWith("~") && packetNumbers.size() != 0) {
-                return "upload";
-            }
-            if (command.startsWith("1~")) {
-                return "download";
-            }
-            return command;
-        } catch (IOException e) {
-            return "";
-        }
+//        try {
+//            String command = receiveString();
+////            System.out.println("UDP " + command);
+//            if (command.startsWith("~") && packetNumbers.size() != 0) {
+//                return "upload";
+//            }
+//            if (command.startsWith("1~")) {
+//                return "download";
+//            }
+//            return command;
+//        } catch (IOException e) {
+//            return "";
+//        }
+        return "";
     }
 
     @Override
@@ -358,33 +394,33 @@ public class UdpServerService implements ServerService {
 
     private void sendBytes(byte[] bytes) throws IOException {
         buf = bytes;
-        packet = new DatagramPacket(buf, buf.length, address, port);
+        DatagramPacket packet = new DatagramPacket(buf, buf.length, address, port);
         socket.send(packet);
     }
 
     private void sendString(String message) throws IOException {
         buf = message.getBytes();
-        packet = new DatagramPacket(buf, buf.length, address, port);
+        DatagramPacket packet = new DatagramPacket(buf, buf.length, address, port);
         socket.send(packet);
     }
 
-    private String receiveString() throws IOException {
-        buf = new byte[256];
-        packet = new DatagramPacket(buf, buf.length);
-        socket.receive(packet);
-        address = packet.getAddress();
-        port = packet.getPort();
-        return new String(packet.getData(), 0, packet.getLength());
-    }
-
-    private byte[] receiveBytes() throws IOException {
-        buf = new byte[65507];
-        packet = new DatagramPacket(buf, buf.length);
-        socket.receive(packet);
-        address = packet.getAddress();
-        port = packet.getPort();
-        return packet.getData();
-    }
+//    private String receiveString() throws IOException {
+//        buf = new byte[256];
+//        packet = new DatagramPacket(buf, buf.length);
+//        socket.receive(packet);
+//        address = packet.getAddress();
+//        port = packet.getPort();
+//        return new String(packet.getData(), 0, packet.getLength());
+//    }
+//
+//    private byte[] receiveBytes() throws IOException {
+//        buf = new byte[65507];
+//        packet = new DatagramPacket(buf, buf.length);
+//        socket.receive(packet);
+//        address = packet.getAddress();
+//        port = packet.getPort();
+//        return packet.getData();
+//    }
 
     private byte[] longToBytes(long x) {
         ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);

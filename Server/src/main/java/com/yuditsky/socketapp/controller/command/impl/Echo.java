@@ -13,7 +13,7 @@ public class Echo implements Command {
     public void execute(String request, ServerService serverService) {
         try {
             serverService.echo();
-        } catch (ServiceException | IOException e) {
+        } catch (ServiceException | IOException | InterruptedException e) {
             log.error(e.getMessage());
         }
     }
