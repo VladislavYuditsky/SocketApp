@@ -12,6 +12,7 @@ import java.util.concurrent.Exchanger;
 @Data
 public class DownloadTask extends Task {
 
+    //test
     private Exchanger<byte[]> exchanger;
     private InetAddress address;
     private int port;
